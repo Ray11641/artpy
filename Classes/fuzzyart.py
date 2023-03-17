@@ -1,9 +1,16 @@
 """
-    SalientART PY: A Python library of Salient ART.
+    ARTPY: A Python library of Adaptive Resonance Theory based learning
+     models.
+
+     This file provides FuzzyART class.
 """
+__version__ = "0.1"
+__author__ = "Raghu Yelugam"
 
 import os
 import numpy as np
+from typing import Dict, List, Tuple
+
 
 class FuzzyART:
     """
@@ -14,35 +21,52 @@ class FuzzyART:
 
     """
 
-    def __init__(self,vigilance,alpha, beta):
+    def __init__(self,
+                 vigilance_: float,
+                 alpha_: float,
+                 beta_: float) -> None:
         """
-        :Param vigilance: vigilance value for training the ART model
-        :Param alpha: The parameter for the choice function evaluation
-        :Param beta: Learning rate for training the Fuzzy ART model
+        :param vigilance_: vigilance value for training the ART model
+        :param alpha_: The parameter for the choice function evaluation
+        :param beta_: Learning rate for training the Fuzzy ART model
         """
-        self.vigilance = vigilance
-        self.alpha = alpha
-        self.beta = beta
-        self.prototypes = []
-        self.labels_ = []
+        self.vigilance_ = vigilance_
+        self.alpha_ = alpha_
+        self.beta_ = beta_
+        self.prototypes: List[np.ndarray] = []
+        self.labels_: List[int] = []
 
-    def choice(self,input):
-        T = []
+    def choice(self,
+               input: np.ndarray) -> List[float]:
+        """
+        :param input: current input
+        """
+        T: List[float] = []
         for prototype in self.prototypes:
-            choice = np.sum(np.minimum(prototype,input))/(self.alpha + np.sum(prototype))
+            choice = np.sum(np.minimum(prototype, input))
+            choice /= self.alpha_ + np.sum(prototype)
             T.append(choice)
         return T
 
-    def match(self,input):
-        M = []
+    def match(self,
+              input: np.ndarray) -> List[float]:
+        """
+        :param input: current input
+        """
+
+        M: List[float] = []
         for prototype in self.prototypes:
-            match = np.sum(np.minimum(prototype, input))/np.sum(input)
+            if np.sum(prototype) == 0 and np.sum(input) == 0:
+                match = 1
+            else:
+                match = np.sum(np.minimum(prototype, input))/np.sum(input)
             M.append(match)
         return M
 
-    def learn(self,input):
+    def learn(self,
+              input: np.ndarray) -> None:
         """
-        :Param input: the input vector to be fed the ART model
+        :param input: the input vector to be fed the ART model
         """
         if len(self.prototypes) == 0:
             self.prototypes.append(input)
@@ -51,27 +75,28 @@ class FuzzyART:
 
             T = self.choice(input)
             M = self.match(input)
-            while not all(val<0 for val in T):
-                #print("In While Loop")
-                I = T.index(max(T))
-                if M[I] >= self.vigilance:
-                    self.prototypes[I] =  (1 -self.beta)*self.prototypes[I] + self.beta*np.minimum(input,self.prototypes[I])
+            while not all(val < 0 for val in T):
+                I: int = T.index(max(T))
+                if M[I] >= self.vigilance_:
+                    self.prototypes[I] = (1 - self.beta_)*self.prototypes[I] \
+                            + self.beta_*np.minimum(input, self.prototypes[I])
                     self.labels_.append(I)
                     break
                 else:
                     T[I] = -1.0
 
-            if all(val<0 for val in T):
+            if all(val < 0 for val in T):
                 self.prototypes.append(input)
-                self.labels_.append(len(self.prototypes)+1)
+                self.labels_.append(len(self.prototypes)-1)
 
-    def fit(self,data):
+    def fit(self,
+            data: np.ndarray) -> None:
         """
-        :Param data: the input data for the ART model
+        :param data: the input data for the ART model
         """
         temp = 0
         for val in data:
-            temp+=1
-            print(f"Input number #{temp}")
+            temp += 1
+            print(f"Presenting observation #{temp}")
             self.learn(val)
-        print("Done self.learn")
+        print("Done learning")

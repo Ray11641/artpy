@@ -1,40 +1,35 @@
 """
-    SalientART PY: A Python library of Salient ART. This file is part of Neurol-
-    ogy phenotyping.
+    SalientTopoART PY: A Python library of Salient TopoART.
+
+    This function implements complement coding and scaling for a
+    given input
 """
+__version__ = "0.1"
+__author__ = "Raghu Yelugam"
 
 import numpy as np
 
-def ComplementCoding(iNput,dim=0):
+
+def ComplementCoding(data: np.ndarray,
+                     dim: int = 0) -> np.ndarray:
 
     """
-    :param iNput: iNput data
+    :param data: input data
     :param dim: dimension along with normalisation should be done
+    :return CCData: scaled complement coded input
     """
 
-    if isinstance(iNput,list):
-        nSamples = len(iNput)
-        tiNput = np.array(iNput)
-        dim_max = np.max(tiNput, axis = dim)
-        dim_min = np.min(tiNput, axis = dim)
-
-        normalised = (tiNput-dim_min)/(dim_max - dim_min)
-        normalised = np.concatenate((normalised, 1- normalised), axis=1)
-        CCiNput = []
-        for itr in range(nSamples):
-            CCiNput.append(normalised[itr,:])
-
-    elif isinstance(iNput, np.ndarray):
-        dim_max = np.max(iNput, axis = dim)
-        dim_min = np.min(iNput, axis = dim)
+    if isinstance(data, np.ndarray):
+        dim_max = np.max(data, axis=dim)
+        dim_min = np.min(data, axis=dim)
 
         if dim == 0:
-            normalised = (iNput-dim_min)/(dim_max - dim_min)
-        if dim ==1:
-            normalised = ((iNput.T - dim_min)/(dim_max- dim_min)).T
+            normalised = (data - dim_min)/(dim_max - dim_min + 1e-8)
+        if dim == 1:
+            normalised = ((data.T - dim_min)/(dim_max - dim_min + 1e-8)).T
 
-        CCiNput = np.concatenate((normalised,1-normalised), axis = 1-dim)
+        CCData = np.concatenate((normalised, 1-normalised), axis=1-dim)
     else:
         raise TypeError("Not either a list or an np.ndarray")
 
-    return CCiNput
+    return CCData
