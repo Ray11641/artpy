@@ -12,10 +12,10 @@ from typing import Dict, List, Tuple
 
 class TopoART:
     """
-       Reference: Tscherepanow, M., 2010. TopoART: A topology learning hierarc
-       -hical ART network. In Artificial Neural Networks–ICANN 2010: 20th Inte
-       -rnational Conference, Thessaloniki, Greece, September 15-18, 2010, 
-       Proceedings, Part III 20 (pp. 157-167). Springer Berlin Heidelberg.
+    Reference: Tscherepanow, M., 2010. TopoART: A topology learning hierarc
+    -hical ART network. In Artificial Neural Networks–ICANN 2010: 20th Inte
+    -rnational Conference, Thessaloniki, Greece, September 15-18, 2010, 
+    Proceedings, Part III 20 (pp. 157-167). Springer Berlin Heidelberg.
     """
 
     def __init__(self,
@@ -42,16 +42,18 @@ class TopoART:
         self.phi_ = phi_
         self.nlevels: int = nlevels
         self.cycle_: int = 0
+        self.tau_: int = tau_
         self.prototypes: dict = {}
         self.labels_: dict = {}
-        self.edges: List[List[Tuple[int, int]]] = {}
+        self.edges_: Dict[List[Tuple[int, int]]] = {}
         for levels in range(nlevels):
             self.vigilance_.append(vigilance_)
             vigilance_ = (1+vigilance_)/2
-            self.prototypes[f"{levels}"]: Dict[list, list] = {"weights": [],
-                                                              "counter": []}
+            self.prototypes[f"{levels}"]: Dict[list, list, list] = {"weights": [],
+                                                                    "counter": [],
+                                                                    "tag": []}
             self.labels_[f"{levels}"]: List[int] = []
-
+            self.edges_[f"{levels}"]: List[Tuple[int, int]] = []
 
     def choice(self,
                input: np.ndarray,
@@ -75,8 +77,31 @@ class TopoART:
             match = np.sum(np.minimum(prototype, input))/np.sum(input)
             M.append(match)
         return M
+    
+    def prune(self,
+              level: int) -> None:
+        """
+        prune the prototypes with count less than self.tau
+        :param level: the level of the hierarchy to be pruned
+        """
+        counts = np.array(self.prototypes[f"level"]["counter"])
+        pruneLocations = np.where(counts<self.phi_)[0]
+        pruneLocations[::-1].sort()
+        for index in pruneLocations:
+            self.prototypes[f"level"]["weights"].pop(index)
+            self.prototypes[f"level"]["counter"].pop(index)
+            tag = self.prototypes[f"level"]["tag"][index]
+            for edge in self.edges_[f"level"]:
+                if tag in edge:
+                    edges.remove(edge)
+            for (loc, x) in enumearate(self.labels_[f"level"]):
+                if x == tag:
+                    self.labels_[f"level"][loc] = "d"
+            self.prototypes[f"level"]["tag"].pop(index)
+                
 
-    def learn(self, input):
+    def learn(self,
+              input: np.ndarray) -> None:
         """
         :param input: the input vector to be fed the ART model
         """
@@ -87,7 +112,8 @@ class TopoART:
             if len(self.prototypes[f"level"]) == 0:
                 self.prototypes[f"level"]["weights"].append(input)
                 self.prototypes[f"level"]["counter"].append(1)
-                self.labels_[f"level"].append(0)
+                self.prototypes[f"level"]["tag"].append(f'p{self.cycle_}')
+                self.labels_[f"level"].append(f'p{self.cycle_}')
                 PassToLevel = False
 
             else:
@@ -100,7 +126,8 @@ class TopoART:
                             (1-self.beta1_)*self.prototypes[f"level"]["weights"][IFW] \
                             + self.beta1_*np.minimum(input,self.prototypes[f"level"]["weights"][IFW])
                         self.prototypes[f"level"]["counter"][IFW] += 1
-                        self.labels_[level].append(IFW)
+                        tagFW = self.prototypes[f"level"]["tag"][IFW]
+                        self.labels_[level].append(tagFW)
                         T[IFW] = -1.0
                         if self.prototypes[f"level"]["counter"][IFW] < self.phi_:
                             PassToLevel = False
@@ -111,13 +138,12 @@ class TopoART:
                                 self.prototypes[f"level"]["weights"][ISW] = \
                                     (1-self.beta2_)*self.prototypes[f"level"]["weights"][ISW] \
                                     + self.beta2_*np.minimum(input,self.prototypes[f"level"]["weights"][ISW])
-                                #Add edges
+                                tagSW = self.prototypes[f"level"]["tag"][SFW]
+                                self.edges_[f"level"].append((tagFW, tagSW))
                                 break
                             else:
                                 T[ISW] = -1.0
-
                         break
-
                     else:
                         T[IFW] = -1.0
 
@@ -125,15 +151,14 @@ class TopoART:
                     self.prototypes[f"level"]["weights"].append(input)
                     self.prototypes[f"level"]["counter"].append(1)
                     newindex: int = len(self.prototypes[f"level"]["weights"])
-                    self.labels_[f"level"].append(newindex-1)
+                    self.labels_[f"level"].append(f'p{self.cycle_}')
+                    self.prototypes[f"level"]["tag"].append(f'p{self.cycle_}')
                     PassToLevel = False
 
             if not PassToLevel:
                 for itr in range(level, self.nlevels):
                     self.labels_[[f"itr"]].append(-1)
 
-
         if self.cycle_%self.tau_ == 0:
-            #prune the edges
             for level in range(self.nlevels):
                 self.prune(level)

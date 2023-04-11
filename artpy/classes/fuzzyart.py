@@ -36,6 +36,12 @@ class FuzzyART:
         self.prototypes: List[np.ndarray] = []
         self.labels_: List[int] = []
 
+    def __repr__(self) -> str:
+        v = self.vigilance_
+        b = self.beta_
+        a = self.alpha_
+        return f"FuzzyART(vigilance ='{v}', alpha = '{a}', beta = '{b}')"
+
     def choice(self,
                input: np.ndarray) -> List[float]:
         """
