@@ -1,15 +1,16 @@
 """
-    ARTPY: A Python library of Adaptive Resonance Theory based learning
-     models.
+    ARTPY: A Python library of Adaptive Resonance
+    Theory based learning models.
 
      This file provides FuzzyART class.
 """
-__version__ = "0.1"
-__author__ = "Raghu Yelugam"
 
 import os
 import numpy as np
 from typing import Dict, List, Tuple
+
+__version__ = "0.1"
+__author__ = "Raghu Yelugam"
 
 
 class FuzzyART:
