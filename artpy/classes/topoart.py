@@ -6,8 +6,23 @@
 """
 
 import os
+from typing import Dict, List, Tuple, IO
+from operator import itemgetter
 import numpy as np
-from typing import Dict, List, Tuple
+import networkx as nx
+from pyvis.network import Network
+from .. functions import *
+import ipdb
+
+__author__ = "Raghu Yelugam"
+__copyright__ = "Copyright 2023"
+__credits__ = ["Leonardo Enzo Brito Da Silva", "Donald Wunsch"]
+__license__ = "GPL"
+__version__ = "0.0.1"
+__maintainer__ = "Raghu Yelugam"
+__email__ = "ry222@mst.edu"
+__status__ = "Development"
+__date__ = "2023.04.13"
 
 
 class TopoART:
@@ -24,8 +39,7 @@ class TopoART:
                  beta1_: float,
                  beta2_: float,
                  phi_: int,
-                 tau_: int,
-                 nlevels: int = 1) -> None:
+                 tau_: int) -> None:
         """
         :param vigilance_: vigilance value for training the ART model
         :param alpha_: The parameter for the choice function evaluation
@@ -35,130 +49,228 @@ class TopoART:
                 be a permanent prototype
         :param tau_: The number of time steps for pruning temporary prototypes
         """
-        self.vigilance_: List[int] = []
-        self.alpha_ = alpha_
-        self.beta1_ = beta1_
-        self.beta2_ = beta2_
-        self.phi_ = phi_
-        self.nlevels: int = nlevels
+        self.vigilance_: float = vigilance_
+        self.alpha_: float = alpha_
+        self.beta1_: float = beta1_
+        self.beta2_: float = beta2_
+        self.phi_: float = phi_
         self.cycle_: int = 0
         self.tau_: int = tau_
-        self.prototypes: dict = {}
-        self.labels_: dict = {}
-        self.edges_: Dict[List[Tuple[int, int]]] = {}
-        for levels in range(nlevels):
-            self.vigilance_.append(vigilance_)
-            vigilance_ = (1+vigilance_)/2
-            self.prototypes[f"{levels}"]: Dict[list, list, list] = {"weights": [],
-                                                                    "counter": [],
-                                                                    "tag": []}
-            self.labels_[f"{levels}"]: List[int] = []
-            self.edges_[f"{levels}"]: List[Tuple[int, int]] = []
-
+        self.prototypes_: Dict[List[np.ndarray], List[int], List[str]] = {"weights": [],
+                                                                         "counter": [],
+                                                                         "tag": []}       
+        self.__labels_: List[str] = []
+        self.edges_: List[Tuple[str, str]] = []
+        self.topoClusters_: List[List[str]] = []
+        self.labels_: List[int] = []
+        self.__addedTags: List[str] = []
+        
     def choice(self,
-               input: np.ndarray,
-               level: int = 0) -> List[float]:
+               input: np.ndarray) -> List[float]:
         """
         :param input: current input
-        :param level: the heirarchy level, default set to lowest, 0
         """
         T: List[float] = []
-        for prototype in self.prototypes[f"{level}"]:
+        for prototype in self.prototypes_["weights"]:
             choice = np.sum(np.minimum(prototype, input)) / \
-                    (self.alpha + np.sum(prototype))
+                    (self.alpha_ + np.sum(prototype))
             T.append(choice)
         return T
 
     def match(self,
-              input: np.ndarray,
-              level: int = 0) -> List[float]:
+              input: np.ndarray) -> List[float]:
         M: List[float] = []
-        for prototype in self.prototypes[f"{level}"]:
+        for prototype in self.prototypes_["weights"]:
             match = np.sum(np.minimum(prototype, input))/np.sum(input)
             M.append(match)
         return M
     
-    def prune(self,
-              level: int) -> None:
+    def prune(self) -> None:
         """
-        prune the prototypes with count less than self.tau
-        :param level: the level of the hierarchy to be pruned
+        prune the prototypes with count less than self.tau_
+        replace label for samples summarised by pruned prototypes
+        with "d"
         """
-        counts = np.array(self.prototypes[f"level"]["counter"])
+        counts = np.array(self.prototypes_["counter"])
         pruneLocations = np.where(counts<self.phi_)[0]
         pruneLocations[::-1].sort()
+        tags = []
         for index in pruneLocations:
-            self.prototypes[f"level"]["weights"].pop(index)
-            self.prototypes[f"level"]["counter"].pop(index)
-            tag = self.prototypes[f"level"]["tag"][index]
-            for edge in self.edges_[f"level"]:
-                if tag in edge:
-                    edges.remove(edge)
-            for (loc, x) in enumearate(self.labels_[f"level"]):
-                if x == tag:
-                    self.labels_[f"level"][loc] = "d"
-            self.prototypes[f"level"]["tag"].pop(index)
+            del self.prototypes_["weights"][index]
+            del self.prototypes_["counter"][index]
+            tags.append(self.prototypes_["tag"].pop(index))
+        itr = 0
+        while itr < len(self.edges_):
+            if self.edges_[itr][0] in tags \
+             or self.edges_[itr][1] in tags:
+                self.edges_.remove(self.edges_[itr])
+                itr -= 1
+            itr += 1
+        for (loc, x) in enumerate(self.__labels_):
+            if x in tags:
+                self.__labels_[loc] = "d"
+
+    def linkedges(self) -> None:
+        """
+        This function identifies the topological clusters in the data.
+        """
+        for edge in self.edges_:
+            if edge[0] not in self.__addedTags:
+                self.__addedTags.append(edge[0])
+            if edge[1] not in self.__addedTags:
+                self.__addedTags.append(edge[1])
                 
+            if len(self.topoClusters_) == 0:
+                tList = []
+                tList.append(edge[0])
+                tList.append(edge[1])
+                self.topoClusters_.append(tList)
+            else:
+                ntC = len(self.topoClusters_)
+                tag0Loc = None
+                tag1Loc = None
+                
+                for index in range(ntC):
+                    if edge[0] in self.topoClusters_[index]:
+                        tag0Loc = index
+                    if edge[1] in self.topoClusters_[index]:
+                        tag1Loc = index
+                if tag0Loc == None and tag1Loc == None:
+                    self.topoClusters_.append([edge[0],edge[1]])
+                elif tag0Loc == None:
+                    self.topoClusters_[tag1Loc].append(edge[0])
+                elif tag1Loc == None:
+                    self.topoClusters_[tag0Loc].append(edge[1])
+                else:
+                    if tag0Loc != tag1Loc:
+                        self.topoClusters_[tag0Loc].extend(self.topoClusters_[tag1Loc])
+                        del self.topoClusters_[tag1Loc]
+
+        for tag in self.prototypes_["tag"]:
+            if tag not in self.__addedTags:
+                self.topoClusters_.append([tag])
+                self.__addedTags.append(tag)
+
+    def classify(self,
+                input: np.ndarray) -> List[int]:
+        """
+        :param input: Input data to be classified
+        """
+        input = ComplementCoding(input)
+        labels: List[int] =  []
+        for val in input:
+            T: List[float] = []
+            for prototype in self.prototypes_["weights"]:
+                choice = 1 - (np.sum(np.minimum(prototype, val) - prototype) / \
+                        (np.sum(val)))
+                T.append(choice)
+            location = choice.index(max(choice))
+
+            tag = self.prototypes_["tag"][location]
+            for itr in range(len(self.topoClusters_)):
+                if tag in self.topoClusters_[itr]:
+                    T.append(itr)
+
+    def label(self) -> None:
+        self.labels_ = []
+        for tag in self.__labels_:
+            if tag == "d":
+                self.labels_.append(-1)
+            else:
+                for itr in range(len(self.topoClusters_)):
+                    if tag in self.topoClusters_[itr]:
+                        self.labels_.append(itr)
+
+    def getgraph(self) -> IO:
+        nclusters = len(self.topoClusters_)
+        nodes = self.prototypes_["tag"]
+        colours = generateclustcolors(nclusters)
+        node_colour = []
+        for tag in self.prototypes_["tag"]:
+            for loc, cluster in enumerate(self.topoClusters_):
+                if tag in cluster:
+                    node_colour.append(colours[loc])
+                    break
+        G = Network()
+        G.add_nodes(nodes,
+                    color = node_colour)
+        G.add_edges(self.edges_)
+        return G
+            
+    def getlocallabels(self,) -> list:
+        return self.__labels_
 
     def learn(self,
               input: np.ndarray) -> None:
         """
         :param input: the input vector to be fed the ART model
         """
-        PassToLevel: bool = True
         level: int = 0
         self.cycle_ += 1
-        while PassToLevel:
-            if len(self.prototypes[f"level"]) == 0:
-                self.prototypes[f"level"]["weights"].append(input)
-                self.prototypes[f"level"]["counter"].append(1)
-                self.prototypes[f"level"]["tag"].append(f'p{self.cycle_}')
-                self.labels_[f"level"].append(f'p{self.cycle_}')
-                PassToLevel = False
+        if len(self.prototypes_["weights"]) == 0:
+            self.prototypes_["weights"].append(input)
+            self.prototypes_["counter"].append(1)
+            self.prototypes_["tag"].append(f'p{self.cycle_}')
+            self.__labels_.append(f'p{self.cycle_}')
 
-            else:
-                T = self.choice(input, level)
-                M = self.match(input, level)
-                while not all(val < 0 for val in T):
-                    IFW: int = T.index(max(T))
-                    if M[IFW] >= self.vigilance_[level]:
-                        self.prototypes[f"level"]["weights"][IFW] = \
-                            (1-self.beta1_)*self.prototypes[f"level"]["weights"][IFW] \
-                            + self.beta1_*np.minimum(input,self.prototypes[f"level"]["weights"][IFW])
-                        self.prototypes[f"level"]["counter"][IFW] += 1
-                        tagFW = self.prototypes[f"level"]["tag"][IFW]
-                        self.labels_[level].append(tagFW)
-                        T[IFW] = -1.0
-                        if self.prototypes[f"level"]["counter"][IFW] < self.phi_:
-                            PassToLevel = False
-                        
-                        while not all(val < 0 for val in T):
-                            ISW: int = T.index(max(T))
-                            if M[ISW] >= self.vigilance_[level]:
-                                self.prototypes[f"level"]["weights"][ISW] = \
-                                    (1-self.beta2_)*self.prototypes[f"level"]["weights"][ISW] \
-                                    + self.beta2_*np.minimum(input,self.prototypes[f"level"]["weights"][ISW])
-                                tagSW = self.prototypes[f"level"]["tag"][SFW]
-                                self.edges_[f"level"].append((tagFW, tagSW))
-                                break
-                            else:
-                                T[ISW] = -1.0
-                        break
-                    else:
-                        T[IFW] = -1.0
+        else:
+            T = self.choice(input)
+            M = self.match(input)
+            l = len(self.__labels_)
+            while not all(val < 0 for val in T):
+                IFW: int = T.index(max(T))
+                if M[IFW] >= self.vigilance_:
+                    self.prototypes_["weights"][IFW] = \
+                        (1-self.beta1_)*self.prototypes_["weights"][IFW] \
+                        + self.beta1_*np.minimum(input,self.prototypes_["weights"][IFW])
+                    self.prototypes_["counter"][IFW] += 1
+                    tagFW = self.prototypes_["tag"][IFW]
+                    self.__labels_.append(tagFW)
+                    T[IFW] = -1.0
 
-                if all(val < 0 for val in T):
-                    self.prototypes[f"level"]["weights"].append(input)
-                    self.prototypes[f"level"]["counter"].append(1)
-                    newindex: int = len(self.prototypes[f"level"]["weights"])
-                    self.labels_[f"level"].append(f'p{self.cycle_}')
-                    self.prototypes[f"level"]["tag"].append(f'p{self.cycle_}')
-                    PassToLevel = False
+                    while not all(val < 0 for val in T):
+                        ISW: int = T.index(max(T))
+                        if M[ISW] >= self.vigilance_:
+                            self.prototypes_["weights"][ISW] = \
+                                (1-self.beta2_)*self.prototypes_["weights"][ISW] \
+                                + self.beta2_*np.minimum(input,self.prototypes_["weights"][ISW])
+                            tagSW = self.prototypes_["tag"][ISW]
+                            if (tagFW, tagSW) not in self.edges_:
+                                self.edges_.append((tagFW, tagSW))
+                            break
+                        else:
+                            T[ISW] = -1.0
+                    break
+                else:
+                    T[IFW] = -1.0
 
-            if not PassToLevel:
-                for itr in range(level, self.nlevels):
-                    self.labels_[[f"itr"]].append(-1)
+            if all(val < 0 for val in T) and \
+             l == len(self.__labels_):
+                self.prototypes_["weights"].append(input)
+                self.prototypes_["counter"].append(1)
+                self.prototypes_["tag"].append(f'p{self.cycle_}')
+                self.__labels_.append(f'p{self.cycle_}')
 
         if self.cycle_%self.tau_ == 0:
-            for level in range(self.nlevels):
-                self.prune(level)
+            self.prune()
+            self.linkedges()
+            self.label()
+
+    def fit(self,
+            data: np.ndarray,
+            verbose: bool = False) -> None:
+        """
+        :param data: the input data for the ART model
+        """
+        data = ComplementCoding(data)
+        temp = 0
+        for val in data:
+            temp += 1
+            if verbose:
+                print(f"Presenting observation #{temp}")
+            self.learn(val)
+        self.prune()
+        self.linkedges()
+        self.label()
+        if verbose:
+            print("Done learning")
