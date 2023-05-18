@@ -4,3 +4,4 @@
 """
 
 from .complementcoding import *
+from .generateclustercolors import *

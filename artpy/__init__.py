@@ -3,4 +3,5 @@
     ogy phenotyping.
 """
 
-from .complementcoding import *
+from .classes import *
+from .functions import *
