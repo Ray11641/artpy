@@ -30,11 +30,11 @@ def rgb2hex(r: int,
     :param b: blue value in range of 0-255
     """
     try:
-        if r<0 or r>255:
+        if r < 0 or r > 255:
             raise ValueError('color channels should be or range [0, 255] or [0, 1]')
-        if g<0 or g>255:
+        if g < 0 or g > 255:
             raise ValueError('color channels should be or range [0, 255] or [0, 1]')
-        if b<0 or b>255:
+        if b < 0 or b > 255:
             raise ValueError('color channels should be or range [0, 255] or [0, 1]')
         check1: bool = isinstance(r, float) and \
                        isinstance(g, float) and \
@@ -49,11 +49,11 @@ def rgb2hex(r: int,
         print(f"following error occured in rgb2hex: {e}")
         
     else:
-        if isinstance(r, float) and r<=1.0:
+        if isinstance(r, float) and r <= 1.0:
             r = int(255*r)
-        if isinstance(g, float) and g<=1.0:
+        if isinstance(g, float) and g <= 1.0:
             g = int(255*g)
-        if isinstance(b, float) and b<=1.0:
+        if isinstance(b, float) and b <= 1.0:
             b = int(255*b)
         return "#{:02x}{:02x}{:02x}".format(r,g,b)
 
@@ -68,6 +68,12 @@ def generateclustcolors(ncolourcodes_: int,
     
     clust_colors = []
     colourfunc = mplib.pyplot.get_cmap(colormap_)
+    if ncolourcodes_ == 1:
+        obj = colourfunc(1)
+        clust_colors.append(rgb2hex(obj[0],
+                                    obj[1],
+                                    obj[2]))
+        return clust_colors
     for itr in range(ncolourcodes_):
         obj = colourfunc(itr/(ncolourcodes_ - 1))
         clust_colors.append(rgb2hex(obj[0],
