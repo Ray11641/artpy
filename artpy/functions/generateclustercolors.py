@@ -1,7 +1,6 @@
 """
-    SalientART PY: A Python library of Salient ART.
-    This code is sourced from ARTPY: A Python library
-    of Adaptive Resonance Theory based learning models.
+    ARTPY: A Python library of Adaptive Resonance Theory based learning
+    models.
 
     This file provides rgb2hex and generateclustcolor functions.
 """
