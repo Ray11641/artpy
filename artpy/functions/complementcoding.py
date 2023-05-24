@@ -1,6 +1,7 @@
 """
-    SalientTopoART PY: A Python library of Salient TopoART.
-
+    ARTPY: A Python library of Adaptive Resonance Theory based learning
+     models.
+     
     This function implements complement coding and scaling for a
     given input
 """
