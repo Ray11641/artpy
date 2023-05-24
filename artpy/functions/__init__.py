@@ -1,6 +1,6 @@
 """
-    SalientART PY: A Python library of Salient ART. This file is part of Neurol-
-    ogy phenotyping.
+    ARTPY: A Python library of Adaptive Resonance Theory based learning
+     models.
 """
 
 from .complementcoding import *
