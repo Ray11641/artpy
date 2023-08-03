@@ -2,12 +2,12 @@
     ARTPY: A Python library of Adaptive Resonance Theory based learning
      models.
 
-     This file provides TopoART class.
+    This file provides HypersphereART class.
 """
 
 import os
 from typing import Dict, List, Tuple, IO
-from operator import itemgetter
+#from operator import itemgetter
 import numpy as np
 import networkx as nx
 from pyvis.network import Network
@@ -25,12 +25,12 @@ __status__ = "Development"
 __date__ = "2023.04.13"
 
 
-class TopoART:
+class HypersphereTopoART:
     """
-    Reference: Tscherepanow, M., 2010. TopoART: A topology learning hierarc
-    -hical ART network. In Artificial Neural Networks–ICANN 2010: 20th Inte
-    -rnational Conference, Thessaloniki, Greece, September 15-18, 2010, 
-    Proceedings, Part III 20 (pp. 157-167). Springer Berlin Heidelberg.
+    Tscherepanow, Marko. "Incremental On-line Clustering with a
+    Topology-Learning Hierarchical ART Neural Network Using 
+    Hyperspherical Categories." In ICDM (Poster and Industry
+    Proceedings), pp. 22-34. 2012.
     """
 
     def __init__(self,
@@ -38,6 +38,8 @@ class TopoART:
                  alpha_: float,
                  beta1_: float,
                  beta2_: float,
+                 radialextend_: float,
+                 rmax_: float,
                  phi_: int,
                  tau_: int) -> None:
         """
@@ -45,10 +47,18 @@ class TopoART:
         :param alpha_: The parameter for the choice function evaluation
         :param beta1_: Learning rate for training the first winner
         :param beta2_: Learning rate for training the second winner
-        :param phi_: The minimum number of samples to be summarised to 
+        :param radialextend_: The radial extension parameter, should be a value
+            between [rmax_, inf)
+        :param rmax_: The maximum radius of the presented data
+        :param phi_: The minimum number of samples to be summarised to
                 be a permanent prototype
         :param tau_: The number of time steps for pruning temporary prototypes
+        radialextendu_ refers to uncommitted nodes radialextend
         """
+        if radialextend_ < rmax_:
+            error = f"expected radialextend_ ({radialextend_}) >= rmax_ ({rmax_})"
+            raise Exception(error)
+
         self.vigilance_: float = vigilance_
         self.alpha_: float = alpha_
         self.beta1_: float = beta1_
@@ -56,15 +66,28 @@ class TopoART:
         self.phi_: float = phi_
         self.cycle_: int = 0
         self.tau_: int = tau_
-        self.prototypes_: Dict[List[np.ndarray], List[int], List[str]] = {"weights": [],
-                                                                         "counter": [],
-                                                                         "tag": []}       
+        self.prototypes_: Dict[List[List[np.ndarray, float]], List[int], List[str]] = {}
+        self.prototypes_["weights"] = []
+        self.prototypes_["counter"] = []
+        self.prototypes_["tag"] = []
         self.__labels_: List[str] = []
         self.edges_: List[Tuple[str, str]] = []
         self.topoClusters_: List[List[str]] = []
         self.labels_: List[int] = []
         self.__addedTags: List[str] = []
-        
+        self.radialextend_ = radialextend_
+        self.rmax_ = rmax_
+        self.radialextendu_ = 2*self.radialextend_
+
+    def __repr__(self) -> str:
+        #Change this
+        v = self.vigilance_
+        a = self.alpha_
+        b = self.beta_
+        re = self.radialextend_
+        rm = self.rmax_
+        return f"HypersphereTopoART(vigilance = {v}, alpha = {a}, beta = {b}, radialextend = {re}, rmax = {rm})"
+
     def choice(self,
                input: np.ndarray) -> List[float]:
         """
@@ -72,19 +95,23 @@ class TopoART:
         """
         T: List[float] = []
         for prototype in self.prototypes_["weights"]:
-            choice = np.sum(np.minimum(prototype, input)) / \
-                    (self.alpha_ + np.sum(prototype))
+            choice = self.radialextend_ - max(prototype[1],
+                                              euclideandistance(prototype[0], input))
+            choice /= self.radialextend_ - prototype[1] + self.alpha_
             T.append(choice)
+        T.append(self.radialextend_/(self.radialextendu_ + self.alpha_))
         return T
 
     def match(self,
-              input: np.ndarray) -> List[float]:
-        M: List[float] = []
-        for prototype in self.prototypes_["weights"]:
-            match = np.sum(np.minimum(prototype, input))/np.sum(input)
-            M.append(match)
-        return M
-    
+              input: np.ndarray,
+              index: int) -> float:
+        """
+        :param input: current input
+        """
+        M = max(self.prototypes_["weights"][index][1],
+            euclideandistance(self.prototypes_["weights"][index][0], input))
+        return 1 - (M/self.radialextend_)
+
     def prune(self) -> None:
         """
         prune the prototypes with count less than self.tau_
@@ -119,7 +146,7 @@ class TopoART:
                 self.__addedTags.append(edge[0])
             if edge[1] not in self.__addedTags:
                 self.__addedTags.append(edge[1])
-                
+
             if len(self.topoClusters_) == 0:
                 tList = []
                 tList.append(edge[0])
@@ -129,7 +156,7 @@ class TopoART:
                 ntC = len(self.topoClusters_)
                 tag0Loc = None
                 tag1Loc = None
-                
+
                 for index in range(ntC):
                     if edge[0] in self.topoClusters_[index]:
                         tag0Loc = index
@@ -153,6 +180,7 @@ class TopoART:
 
     def classify(self,
                 input: np.ndarray) -> List[int]:
+        #This has to change
         """
         :param input: Input data to be classified
         """
@@ -196,61 +224,72 @@ class TopoART:
                     color = node_colour)
         G.add_edges(self.edges_)
         return G
-            
+
     def getlocallabels(self,) -> list:
         return self.__labels_
-
+    
     def learn(self,
               input: np.ndarray) -> None:
         """
         :param input: the input vector to be fed the ART model
         """
-        level: int = 0
         self.cycle_ += 1
         if len(self.prototypes_["weights"]) == 0:
-            self.prototypes_["weights"].append(input)
+            self.prototypes_["weights"].append([input, 0])
             self.prototypes_["counter"].append(1)
             self.prototypes_["tag"].append(f'p{self.cycle_}')
             self.__labels_.append(f'p{self.cycle_}')
 
         else:
             T = self.choice(input)
-            M = self.match(input)
-            l = len(self.__labels_)
             while not all(val < 0 for val in T):
                 IFW: int = T.index(max(T))
-                if M[IFW] >= self.vigilance_:
-                    self.prototypes_["weights"][IFW] = \
-                        (1-self.beta1_)*self.prototypes_["weights"][IFW] \
-                        + self.beta1_*np.minimum(input,self.prototypes_["weights"][IFW])
-                    self.prototypes_["counter"][IFW] += 1
-                    tagFW = self.prototypes_["tag"][IFW]
-                    self.__labels_.append(tagFW)
-                    T[IFW] = -1.0
-
-                    while not all(val < 0 for val in T):
-                        ISW: int = T.index(max(T))
-                        if M[ISW] >= self.vigilance_:
-                            self.prototypes_["weights"][ISW] = \
-                                (1-self.beta2_)*self.prototypes_["weights"][ISW] \
-                                + self.beta2_*np.minimum(input,self.prototypes_["weights"][ISW])
-                            tagSW = self.prototypes_["tag"][ISW]
-                            if (tagFW, tagSW) not in self.edges_:
-                                self.edges_.append((tagFW, tagSW))
-                            break
-                        else:
-                            T[ISW] = -1.0
+                print(f"Index = {IFW}")
+                length = len(self.prototypes_["weights"])
+                print(f"#prototypes = {length}")
+                if IFW == len(self.prototypes_["weights"]):
+                    self.prototypes_["weights"].append([input, 0])
+                    self.prototypes_["counter"].append(1)
+                    self.prototypes_["tag"].append(f'p{self.cycle_}')
+                    self.__labels_.append(f'p{self.cycle_}')
                     break
                 else:
-                    T[IFW] = -1.0
-
-            if all(val < 0 for val in T) and \
-             l == len(self.__labels_):
-                self.prototypes_["weights"].append(input)
-                self.prototypes_["counter"].append(1)
-                self.prototypes_["tag"].append(f'p{self.cycle_}')
-                self.__labels_.append(f'p{self.cycle_}')
-
+                    M: float = self.match(input, IFW)
+                    if M >= self.vigilance_:
+                        dist = euclideandistance(input, self.prototypes_["weights"][IFW][0])
+                        a: float = 1 - min(self.prototypes_["weights"][IFW][1], dist)/dist
+                        b: float = input - self.prototypes_["weights"][IFW][0]
+                        self.prototypes_["weights"][IFW][0] += self.beta1_*a*b/2
+                        a = max(self.prototypes_["weights"][IFW][1], dist)
+                        b = self.prototypes_["weights"][IFW][1]
+                        self.prototypes_["weights"][IFW][1] += self.beta1_*(a - b)/2
+                        self.prototypes_["counter"][IFW] += 1
+                        tagFW = self.prototypes_["tag"][IFW]
+                        self.__labels_.append(tagFW)
+                        T[IFW] = -1.0
+                        while not all(val < 0 for val in T):
+                            ISW: int = T.index(max(T))
+                            if ISW == len(self.prototypes_["weights"]):
+                                break
+                            M: float = self.match(input, ISW)
+                            if M >= self.vigilance_:
+                                dist = euclideandistance(input, self.prototypes_["weights"][IFW][0])
+                                a: float = 1 - min(self.prototypes_["weights"][IFW][1], dist)/dist
+                                b: float = input - self.prototypes_["weights"][IFW][0]
+                                self.prototypes_["weights"][IFW][0] += self.beta2_*a*b/2
+                                a = max(self.prototypes_["weights"][IFW][1], dist)
+                                b = self.prototypes_["weights"][IFW][1]
+                                self.prototypes_["weights"][IFW][1] += self.beta2_*(a - b)/2
+                                tagSW = self.prototypes_["tag"][ISW]
+                                if (tagFW, tagSW) not in self.edges_:
+                                    self.edges_.append((tagFW, tagSW))
+                                break
+                            else:
+                                T[ISW] = -1.0
+                        break
+                    else:
+                        T[IFW] = -1.0
+        
         if self.cycle_%self.tau_ == 0:
             self.prune()
             self.linkedges()
@@ -261,14 +300,16 @@ class TopoART:
             verbose: bool = False) -> None:
         """
         :param data: the input data for the ART model
+        :param verbose: to print verbose
         """
-        data = ComplementCoding(data)
-        temp = 0
+        if verbose:
+            temp = 0
         for val in data:
-            temp += 1
             if verbose:
+                temp += 1
                 print(f"Presenting observation #{temp}")
             self.learn(val)
+
         self.prune()
         self.linkedges()
         self.label()

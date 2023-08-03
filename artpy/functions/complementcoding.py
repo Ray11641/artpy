@@ -1,14 +1,13 @@
 """
-    SalientTopoART PY: A Python library of Salient TopoART.
+    ARTPY: A Python library of Adaptive Resonance Theory based learning
+     models.
 
-    This function implements complement coding and scaling for a
-    given input
+    This file provides complementcoding function.
 """
-
 import typing
 import numpy as np
 
-def ComplementCoding(iNput: list,
+def complementcoding(iNput: list,
                     dim: int = 0) -> list[np.ndarray]:
 
     """

@@ -1,8 +1,6 @@
 """
-    SalientART PY: A Python library of Salient ART.
-    This code is sourced from ARTPY: A Python library
-    of Adaptive Resonance Theory based learning models.
-
+    ARTPY: A Python library of Adaptive Resonance Theory based learning
+     models.
     This file provides rgb2hex and generateclustcolor functions.
 """
 
@@ -38,16 +36,16 @@ def rgb2hex(r: int,
             raise ValueError('color channels should be or range [0, 255] or [0, 1]')
         check1: bool = isinstance(r, float) and \
                        isinstance(g, float) and \
-                       isinstance(b, float) 
+                       isinstance(b, float)
         check2: bool = isinstance(r, int) and \
                        isinstance(g, int) and \
-                       isinstance(b, int) 
+                       isinstance(b, int)
         if not check1^check2:
             raise ValueError('color channels should be either all floats or all ints')
-            
+
     except Exception as e:
         print(f"following error occured in rgb2hex: {e}")
-        
+
     else:
         if isinstance(r, float) and r <= 1.0:
             r = int(255*r)
@@ -65,7 +63,7 @@ def generateclustcolors(ncolourcodes_: int,
     :param colormap_: matplotlib colour map to be used for generating the colours
     :param ncolourcodes_: number of colour codes needed
     """
-    
+
     clust_colors = []
     colourfunc = mplib.pyplot.get_cmap(colormap_)
     if ncolourcodes_ == 1:
