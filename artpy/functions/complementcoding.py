@@ -1,6 +1,7 @@
 """
     ARTPY: A Python library of Adaptive Resonance Theory based learning
      models.
+<<<<<<< HEAD
      
     This function implements complement coding and scaling for a
     given input
@@ -10,6 +11,15 @@ import typing
 import numpy as np
 
 def ComplementCoding(iNput: list,
+=======
+
+    This file provides complementcoding function.
+"""
+import typing
+import numpy as np
+
+def complementcoding(iNput: list,
+>>>>>>> development
                     dim: int = 0) -> list[np.ndarray]:
 
     """
