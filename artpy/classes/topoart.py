@@ -273,8 +273,5 @@ class TopoART:
         self.linkedges()
         self.label()
         if verbose:
-<<<<<<< HEAD
             print("Done learning")
-=======
-            print("Done learning")
->>>>>>> development
+
