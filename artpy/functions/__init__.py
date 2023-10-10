@@ -5,8 +5,6 @@
 
 from .complementcoding import *
 from .generateclustercolors import *
-<<<<<<< HEAD
-=======
 from .distance import *
 from .computermax import *
->>>>>>> development
+
