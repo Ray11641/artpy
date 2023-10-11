@@ -12,7 +12,6 @@ import numpy as np
 import networkx as nx
 from pyvis.network import Network
 from .. functions import *
-import ipdb
 
 __author__ = "Raghu Yelugam"
 __copyright__ = "Copyright 2023"
@@ -21,7 +20,7 @@ __license__ = "GPL"
 __version__ = "0.0.1"
 __maintainer__ = "Raghu Yelugam"
 __email__ = "ry222@mst.edu"
-__status__ = "Development"
+__status__ = "Release"
 __date__ = "2023.04.13"
 
 

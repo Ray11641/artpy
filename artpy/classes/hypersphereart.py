@@ -17,7 +17,7 @@ __license__ = "GPL"
 __version__ = "0.0.1"
 __maintainer__ = "Raghu Yelugam"
 __email__ = "ry222@mst.edu"
-__status__ = "Development"
+__status__ = "Release"
 __date__ = "2023.04.13"
 
 
